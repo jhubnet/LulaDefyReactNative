@@ -1,32 +1,19 @@
-graph TD
-  %% ===== Vendor Cloud (control plane; metadata only)
-  subgraph VC[Vendor Cloud - Control Plane]
+flowchart TD
+  subgraph VC[Vendor Cloud Control Plane]
     VC1[Schema Registry]
-    VC2[Company Directory / Discovery API]
+    VC2[Company Directory and Discovery API]
     VC3[DiscoveryLink Service]
     VC1 --> VC2
     VC2 --> VC3
   end
 
-  %% ===== Company System
-  subgraph CO[Company System - Ingest and Receipts]
-    CO1[Auth Surface]
-    CO2[Keys and Certs]
-    CO3[Ingest Endpoint]
-    CO4[Status / Receipt API]
-    CO1 --> CO3
-    CO2 --> CO3
-    CO3 --> CO4
-  end
-
-  %% ===== Portal assets for discoverability
-  subgraph DL[Nula Portal - Discovery Assets]
+  subgraph DL[Nula Portal Discovery Assets]
     P1[Company Onboarding]
-    P2[Generate NulaLink URL + JWT]
+    P2[Mint NulaLink URL and JWT]
     P3[QR Code]
     P4[Short Code]
     P5[NFC Payload]
-    P6[Web Landing - Install and Continue]
+    P6[Web Landing Install and Continue]
     P1 --> P2
     P2 --> P3
     P2 --> P4
@@ -35,15 +22,14 @@ graph TD
     VC3 --> P2
   end
 
-  %% ===== Entry points and OS handoff
-  subgraph EP[Entry - Open or Install]
-    R1[Scan QR / Tap Link]
+  subgraph EP[Entry Open or Install]
+    R1[Scan QR or Tap Link]
     R2[NFC Tap]
     R3[Enter Short Code]
     R4[iOS Universal Link]
     R5[Android App Link]
     R6[Install Referrer]
-    R7[App Clip / Instant App]
+    R7[App Clip or Instant App]
     R8[Web Landing Fallback]
   end
 
@@ -60,10 +46,9 @@ graph TD
   R8 --> R4
   R8 --> R5
 
-  %% ===== User Device (edge)
-  subgraph UE[User Device - Nula App]
-    UE1[Launch from Link]
-    UE2[Verify Token (JWS)]
+  subgraph UE[User Device Nula App]
+    UE1[Launch From Link]
+    UE2[Verify Token JWS]
     UE3[Resolve Company]
     UE4[Consent Screen]
     UE5[Local Vault]
@@ -91,13 +76,22 @@ graph TD
   UE7 --> UE8
   UE8 --> UE9
 
-  %% ===== Transport options
   UE9 --> T1[REST JSON]
-  UE9 --> T2[Pre-signed Upload]
+  UE9 --> T2[Presigned Upload]
   UE9 --> T3[SFTP PGP]
-  UE9 --> T4[Email S-MIME]
+  UE9 --> T4[Email SMIME]
   UE9 --> T5[GraphQL Mutation]
   UE9 --> T6[REST mTLS]
+
+  subgraph CO[Company System Ingest and Receipts]
+    CO1[Auth Surface]
+    CO2[Keys and Certs]
+    CO3[Ingest Endpoint]
+    CO4[Status Receipt API]
+    CO1 --> CO3
+    CO2 --> CO3
+    CO3 --> CO4
+  end
 
   T1 --> CO3
   T2 --> CO3
@@ -106,11 +100,7 @@ graph TD
   T5 --> CO3
   T6 --> CO3
 
-  %% ===== Receipts back to device
-  CO3 --> CO4
   CO4 --> UE10
   UE10 --> UE11
 
-  %% ===== Resilience
-  CO3 -->|error| UE8
-
+  CO3 --> UE8
