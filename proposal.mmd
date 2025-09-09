@@ -1,9 +1,116 @@
-```
 graph TD
-    A[Start] --> B{Is it working?}
-    B -->|Yes| C[Continue]
-    B -->|No| D[Debug]
-    D --> E[Fix issue]
-    E --> B
-    C --> F[Complete]
-```
+  %% ===== Vendor Cloud (control plane; metadata only)
+  subgraph VC[Vendor Cloud - Control Plane]
+    VC1[Schema Registry]
+    VC2[Company Directory / Discovery API]
+    VC3[DiscoveryLink Service]
+    VC1 --> VC2
+    VC2 --> VC3
+  end
+
+  %% ===== Company System
+  subgraph CO[Company System - Ingest and Receipts]
+    CO1[Auth Surface]
+    CO2[Keys and Certs]
+    CO3[Ingest Endpoint]
+    CO4[Status / Receipt API]
+    CO1 --> CO3
+    CO2 --> CO3
+    CO3 --> CO4
+  end
+
+  %% ===== Portal assets for discoverability
+  subgraph DL[Nula Portal - Discovery Assets]
+    P1[Company Onboarding]
+    P2[Generate NulaLink URL + JWT]
+    P3[QR Code]
+    P4[Short Code]
+    P5[NFC Payload]
+    P6[Web Landing - Install and Continue]
+    P1 --> P2
+    P2 --> P3
+    P2 --> P4
+    P2 --> P5
+    P2 --> P6
+    VC3 --> P2
+  end
+
+  %% ===== Entry points and OS handoff
+  subgraph EP[Entry - Open or Install]
+    R1[Scan QR / Tap Link]
+    R2[NFC Tap]
+    R3[Enter Short Code]
+    R4[iOS Universal Link]
+    R5[Android App Link]
+    R6[Install Referrer]
+    R7[App Clip / Instant App]
+    R8[Web Landing Fallback]
+  end
+
+  P3 --> R1
+  P2 --> R4
+  P2 --> R5
+  P5 --> R2
+  P4 --> R3
+  P6 --> R8
+  R1 --> R4
+  R1 --> R5
+  R2 --> R4
+  R2 --> R5
+  R8 --> R4
+  R8 --> R5
+
+  %% ===== User Device (edge)
+  subgraph UE[User Device - Nula App]
+    UE1[Launch from Link]
+    UE2[Verify Token (JWS)]
+    UE3[Resolve Company]
+    UE4[Consent Screen]
+    UE5[Local Vault]
+    UE6[Mapping Engine]
+    UE7[Package Envelope]
+    UE8[Queue and Retry]
+    UE9[Transport Orchestrator]
+    UE10[Receipt Store]
+    UE11[Status UI]
+  end
+
+  R4 --> UE1
+  R5 --> UE1
+  R6 --> UE1
+  R7 --> UE1
+  R3 --> UE1
+
+  UE1 --> UE2
+  UE2 --> UE3
+  UE3 --> VC2
+  UE3 --> UE4
+  UE5 --> UE6
+  UE4 --> UE6
+  UE6 --> UE7
+  UE7 --> UE8
+  UE8 --> UE9
+
+  %% ===== Transport options
+  UE9 --> T1[REST JSON]
+  UE9 --> T2[Pre-signed Upload]
+  UE9 --> T3[SFTP PGP]
+  UE9 --> T4[Email S-MIME]
+  UE9 --> T5[GraphQL Mutation]
+  UE9 --> T6[REST mTLS]
+
+  T1 --> CO3
+  T2 --> CO3
+  T3 --> CO3
+  T4 --> CO3
+  T5 --> CO3
+  T6 --> CO3
+
+  %% ===== Receipts back to device
+  CO3 --> CO4
+  CO4 --> UE10
+  UE10 --> UE11
+
+  %% ===== Resilience
+  CO3 -->|error| UE8
+
