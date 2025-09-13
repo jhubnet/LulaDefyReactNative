@@ -2,51 +2,57 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Button, ScrollView, Platform } from 'react-native';
 
-import type { CompanySchema, Envelope } from '../models/types';
+import type { CompanySchema, Envelope, IngestDescriptor } from '../models/types';
 import type { RootStackParamList } from '../navigation/types';
-import { fetchSchema } from '../services/companyDirectory';
+import { resolveToken } from '../services/discoveryLink';
 import { mapVaultToEnvelope } from '../services/mappingEngine';
-import { queueAndRetry, sendEnvelope } from '../services/transport/orchestrator';
+import { sendViaIngest } from '../services/transport/orchestrator';
 import { getIdentitySnapshot } from '../services/vault';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DynamicForm'>;
 
 export default function DynamicFormScreen({ route, navigation }: Props) {
-  const schemaId = route.params?.schemaId ?? 'schema_v1';
+  const token = route.params?.token ?? '';
   const [schema, setSchema] = useState<CompanySchema | null>(null);
+  const [ingest, setIngest] = useState<IngestDescriptor | null>(null);
   const [envelope, setEnvelope] = useState<Envelope | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const sch = await fetchSchema(schemaId);
-      if (!mounted) return;
-      setSchema(sch);
-      const vault = getIdentitySnapshot();
-      const env = mapVaultToEnvelope(sch, { vault });
-      setEnvelope(env);
+      try {
+        const resolved = await resolveToken(token);
+        if (!mounted) return;
+        setSchema(resolved.schema);
+        setIngest(resolved.ingest);
+        const vault = getIdentitySnapshot();
+        const env = mapVaultToEnvelope(resolved.schema, { vault });
+        setEnvelope(env);
+      } catch (e: any) {
+        if (mounted) setError(e?.message ?? 'resolve_failed');
+      } finally {
+        if (mounted) setLoading(false);
+      }
     })();
     return () => {
       mounted = false;
     };
-  }, [schemaId]);
+  }, [token]);
 
   const preview = useMemo(() => JSON.stringify(envelope, null, 2), [envelope]);
 
   const submit = async () => {
-    if (!envelope) return;
+    if (!envelope || !ingest) return;
     setSubmitting(true);
     try {
-      const result = await queueAndRetry(() =>
-        sendEnvelope(envelope, 'REST_JSON', 'https://example.com/ingest'),
-      );
-      if (result.ok) {
-        navigation.navigate('Home');
-      } else {
-        // TODO: better error UI
-        console.warn('Submit failed', result.error);
-      }
+      const receipt = await sendViaIngest(envelope, ingest);
+      console.log('Receipt', receipt);
+      navigation.navigate('Home');
+    } catch (e) {
+      console.warn('Submit failed', e);
     } finally {
       setSubmitting(false);
     }
@@ -55,8 +61,16 @@ export default function DynamicFormScreen({ route, navigation }: Props) {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Dynamic Form</Text>
-      <Text>Schema: {schemaId}</Text>
-      <Text>Fields: {schema?.fields.length ?? 0}</Text>
+      {loading ? (
+        <Text>Loading…</Text>
+      ) : error ? (
+        <Text style={styles.error}>Error: {error}</Text>
+      ) : (
+        <>
+          <Text>Schema: {schema?.title}</Text>
+          <Text>Fields: {schema?.fields.length ?? 0}</Text>
+        </>
+      )}
       <Text style={styles.subtitle}>Envelope Preview</Text>
       <View style={styles.previewBox}>
         <Text style={styles.code}>{preview}</Text>
@@ -90,4 +104,5 @@ const styles = StyleSheet.create({
     fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
     fontSize: 12,
   },
+  error: { color: 'red' },
 });

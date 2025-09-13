@@ -23,14 +23,26 @@ export default function ScanLinkScreen({ navigation }: Props) {
       setError('TOKEN_INVALID');
       return;
     }
-    navigation.navigate('Consent', {
-      companyId: res.payload!.companyId,
-      schemaId: res.payload!.schemaId,
-    });
+    navigation.navigate('Consent', { token: res.token! });
   };
 
-  const simulateScan = () => {
-    navigation.navigate('Consent', { companyId: 'co_demo', schemaId: 'schema_v1' });
+  const simulateScan = async () => {
+    const input = url.trim();
+    if (!input) {
+      setError('Provide a token or URL to simulate');
+      return;
+    }
+    const res = parseLulaLink(input);
+    if (res.errors || !res.token) {
+      setError(res.errors?.join(',') ?? 'PARSE_FAILED');
+      return;
+    }
+    const ok = await verifyLinkToken(res.token);
+    if (!ok) {
+      setError('TOKEN_INVALID');
+      return;
+    }
+    navigation.navigate('Consent', { token: res.token });
   };
 
   return (
