@@ -1,9 +1,6 @@
 module.exports = {
   root: true,
-  extends: [
-    'universe/native',
-    'universe/shared/typescript',
-  ],
+  extends: ['universe/native', 'universe/shared/typescript'],
   parser: '@typescript-eslint/parser',
   plugins: ['@typescript-eslint'],
   rules: {
