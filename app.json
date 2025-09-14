@@ -14,14 +14,23 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Allow Lula to scan secure QR tokens to begin onboarding."
+      },
+      "bundleIdentifier": "com.anonymous.LulaDefyReactNative"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "CAMERA",
+        "android.permission.CAMERA"
+      ],
+      "package": "com.anonymous.LulaDefyReactNative"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -29,6 +38,9 @@
     "extra": {
       "vendorBaseUrl": "https://api.vendor.example",
       "relayBaseUrl": "https://relay.vendor.example"
-    }
+    },
+    "plugins": [
+      "expo-barcode-scanner"
+    ]
   }
 }
