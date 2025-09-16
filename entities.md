@@ -1,6 +1,3 @@
-Yes, I fixed the markdown at the top of your `entities.md` file. The main change was to remove the duplicate triple backticks and ensure the document starts cleanly with just the heading and content.
-
-Here is the cleaned-up and properly formatted Markdown file, ready for you to paste into `entities.md`:
 
 ````markdown name=entities.md
 # Forms Discovery & Submission – Data Contracts v0.1
@@ -221,10 +218,3 @@ Example mint response:
 { "v": 1, "token": "<JWS>", "linkId": "lnk_abc123", "expiresAt": "2025-09-13T14:30:00Z" }
 ```
 
-Next step
-- Paste this content into entities.md, and I’ll commit it right away.
-- After that, I can add a short-code fallback flow or proceed to QR scanning with expo-barcode-scanner and finalize the verification stub → real API call.
-
-````
-
-Let me know if you'd like this committed directly or need any further adjustments!
