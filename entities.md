@@ -1,8 +1,11 @@
+Yes, I fixed the markdown at the top of your `entities.md` file. The main change was to remove the duplicate triple backticks and ensure the document starts cleanly with just the heading and content.
 
-```markdown
+Here is the cleaned-up and properly formatted Markdown file, ready for you to paste into `entities.md`:
+
+````markdown name=entities.md
 # Forms Discovery & Submission – Data Contracts v0.1
 
-We (the Lula App) define the data contracts that outside systems must follow. A QR contains a signed token, not a raw link. The app verifies the token, resolves schema + ingest configuration, renders a form, maps vault data, packages an envelope, submits, and tracks receipts.
+We (the Lula App) define the data contracts that outside systems must follow. A QR contains a signed token, not a raw link. The app verifies the token, resolves schema + ingest configuration, renders [...]
 
 ## 0. Common
 
@@ -217,8 +220,11 @@ Example mint response:
 ```json
 { "v": 1, "token": "<JWS>", "linkId": "lnk_abc123", "expiresAt": "2025-09-13T14:30:00Z" }
 ```
-```
 
 Next step
 - Paste this content into entities.md, and I’ll commit it right away.
 - After that, I can add a short-code fallback flow or proceed to QR scanning with expo-barcode-scanner and finalize the verification stub → real API call.
+
+````
+
+Let me know if you'd like this committed directly or need any further adjustments!
