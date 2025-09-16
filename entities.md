@@ -1,18 +1,4 @@
 
-
-
-
-
-
-##
-Great—implemented. I’ve already aligned the codebase to the v0.1 contracts:
-- Updated domain types in src/models/types.ts (TransportType, IngestDescriptor, ResolveResponse, PrivacyNotice, Envelope attachments/encryption/signature, Receipt, transportHint in LulaLinkPayload).
-- Extended discoveryLink parsing to accept LULA1.<JWS>, plain JWTs, and URLs with ?token/?jwt, then decode consistently.
-- ScanLinkScreen accepts raw token input (good for your QR plan).
-
-Now, adding the spec to entities.md
-I can’t write to files in this message, so here is the complete content. Please paste it into entities.md and I can commit immediately after.
-
 ```markdown
 # Forms Discovery & Submission – Data Contracts v0.1
 
