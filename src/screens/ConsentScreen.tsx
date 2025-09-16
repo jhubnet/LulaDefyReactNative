@@ -4,12 +4,15 @@ import { View, Text, StyleSheet, Button } from 'react-native';
 
 import type { CompanySchema, Company } from '../models/types';
 import type { RootStackParamList } from '../navigation/types';
+import { fetchCompany, fetchSchema } from '../services/companyDirectory';
 import { resolveToken, verifyLinkToken } from '../services/discoveryLink';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Consent'>;
 
 export default function ConsentScreen({ route, navigation }: Props) {
-  const token = route.params?.token ?? '';
+  const token = route.params?.token;
+  const companyIdParam = route.params?.companyId;
+  const schemaIdParam = route.params?.schemaId;
   const [company, setCompany] = useState<Company | null>(null);
   const [schema, setSchema] = useState<CompanySchema | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -19,12 +22,24 @@ export default function ConsentScreen({ route, navigation }: Props) {
     let mounted = true;
     (async () => {
       try {
-        const ok = await verifyLinkToken(token);
-        if (!ok) throw new Error('TOKEN_INVALID');
-        const resolved = await resolveToken(token);
-        if (!mounted) return;
-        setCompany(resolved.company);
-        setSchema(resolved.schema);
+        if (token) {
+          const ok = await verifyLinkToken(token);
+          if (!ok) throw new Error('TOKEN_INVALID');
+          const resolved = await resolveToken(token);
+          if (!mounted) return;
+          setCompany(resolved.company);
+          setSchema(resolved.schema);
+        } else if (companyIdParam && schemaIdParam) {
+          const [c, s] = await Promise.all([
+            fetchCompany(companyIdParam),
+            fetchSchema(schemaIdParam),
+          ]);
+          if (!mounted) return;
+          setCompany(c);
+          setSchema(s);
+        } else {
+          throw new Error('missing_params');
+        }
       } catch (e: any) {
         if (mounted) setError(e?.message ?? 'resolve_failed');
       } finally {
@@ -34,7 +49,7 @@ export default function ConsentScreen({ route, navigation }: Props) {
     return () => {
       mounted = false;
     };
-  }, [token]);
+  }, [token, companyIdParam, schemaIdParam]);
 
   return (
     <View style={styles.container}>
@@ -51,7 +66,14 @@ export default function ConsentScreen({ route, navigation }: Props) {
       )}
       <Button
         title="Agree and Continue"
-        onPress={() => navigation.navigate('DynamicForm', { token })}
+        onPress={() => {
+          const params: { token?: string; companyId?: string; schemaId?: string } = {
+            ...(token ? { token } : {}),
+            ...(company?.id ? { companyId: company.id } : {}),
+            ...(schema?.id ? { schemaId: schema.id } : {}),
+          };
+          navigation.navigate('DynamicForm', params);
+        }}
       />
       <Button title="Cancel" onPress={() => navigation.goBack()} />
     </View>

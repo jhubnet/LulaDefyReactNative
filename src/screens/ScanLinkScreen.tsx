@@ -4,7 +4,7 @@ import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, Button, TextInput } from 'react-native';
 
 import type { RootStackParamList } from '../navigation/types';
-import { parseLulaLink, verifyLinkToken } from '../services/discoveryLink';
+import { parseLulaLink, parseCompanySchema, verifyLinkToken } from '../services/discoveryLink';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ScanLink'>;
 
@@ -20,17 +20,24 @@ export default function ScanLinkScreen({ navigation }: Props) {
 
   const parseAndContinue = async () => {
     setError(null);
-    const res = parseLulaLink(url.trim());
-    if (res.errors) {
-      setError(res.errors.join(','));
+    const input = url.trim();
+    const tokenRes = parseLulaLink(input);
+    if (tokenRes.token) {
+      const ok = await verifyLinkToken(tokenRes.token);
+      if (!ok) {
+        setError('TOKEN_INVALID');
+        return;
+      }
+      navigation.navigate('Consent', { token: tokenRes.token });
       return;
     }
-    const ok = await verifyLinkToken(res.token!);
-    if (!ok) {
-      setError('TOKEN_INVALID');
+    // Fallback: company/schema without token
+    const cs = parseCompanySchema(input);
+    if (cs.companyId && cs.schemaId) {
+      navigation.navigate('Consent', { companyId: cs.companyId, schemaId: cs.schemaId });
       return;
     }
-    navigation.navigate('Consent', { token: res.token! });
+    setError(tokenRes.errors?.join(',') || cs.errors?.join(',') || 'PARSE_FAILED');
   };
 
   const simulateScan = async () => {
@@ -39,17 +46,7 @@ export default function ScanLinkScreen({ navigation }: Props) {
       setError('Provide a token or URL to simulate');
       return;
     }
-    const res = parseLulaLink(input);
-    if (res.errors || !res.token) {
-      setError(res.errors?.join(',') ?? 'PARSE_FAILED');
-      return;
-    }
-    const ok = await verifyLinkToken(res.token);
-    if (!ok) {
-      setError('TOKEN_INVALID');
-      return;
-    }
-    navigation.navigate('Consent', { token: res.token });
+    await parseAndContinue();
   };
 
   const openScanner = useCallback(async () => {
@@ -167,17 +164,24 @@ export default function ScanLinkScreen({ navigation }: Props) {
       console.log('Barcode scanned', data);
     } catch {}
     setLastScan(data ?? null);
-    const res = parseLulaLink(data);
-    if (res.errors || !res.token) {
-      setError(res.errors?.join(',') ?? 'PARSE_FAILED');
+    // Try token path first
+    const tokenRes = parseLulaLink(data);
+    if (tokenRes.token) {
+      const ok = await verifyLinkToken(tokenRes.token);
+      if (!ok) {
+        setError('TOKEN_INVALID');
+        return;
+      }
+      navigation.navigate('Consent', { token: tokenRes.token });
       return;
     }
-    const ok = await verifyLinkToken(res.token);
-    if (!ok) {
-      setError('TOKEN_INVALID');
+    // Fallback: company/schema from URL
+    const cs = parseCompanySchema(data);
+    if (cs.companyId && cs.schemaId) {
+      navigation.navigate('Consent', { companyId: cs.companyId, schemaId: cs.schemaId });
       return;
     }
-    navigation.navigate('Consent', { token: res.token });
+    setError(tokenRes.errors?.join(',') || cs.errors?.join(',') || 'PARSE_FAILED');
   };
 
   return (
@@ -230,7 +234,7 @@ export default function ScanLinkScreen({ navigation }: Props) {
       )}
       <TextInput
         style={styles.input}
-        placeholder="Paste lula:// link or https://... with token param"
+        placeholder="Paste lula:// or https:// URL (supports ?token=... or ?companyId=...&schemaId=...)"
         value={url}
         onChangeText={setUrl}
         autoCapitalize="none"

@@ -4,6 +4,8 @@ import { View, Text, StyleSheet, Button, ScrollView, Platform } from 'react-nati
 
 import type { CompanySchema, Envelope, IngestDescriptor } from '../models/types';
 import type { RootStackParamList } from '../navigation/types';
+import { fetchSchema } from '../services/companyDirectory';
+import { Config } from '../services/config';
 import { resolveToken } from '../services/discoveryLink';
 import { mapVaultToEnvelope } from '../services/mappingEngine';
 import { sendViaIngest } from '../services/transport/orchestrator';
@@ -12,7 +14,8 @@ import { getIdentitySnapshot } from '../services/vault';
 type Props = NativeStackScreenProps<RootStackParamList, 'DynamicForm'>;
 
 export default function DynamicFormScreen({ route, navigation }: Props) {
-  const token = route.params?.token ?? '';
+  const token = route.params?.token;
+  const schemaIdParam = route.params?.schemaId;
   const [schema, setSchema] = useState<CompanySchema | null>(null);
   const [ingest, setIngest] = useState<IngestDescriptor | null>(null);
   const [envelope, setEnvelope] = useState<Envelope | null>(null);
@@ -24,13 +27,34 @@ export default function DynamicFormScreen({ route, navigation }: Props) {
     let mounted = true;
     (async () => {
       try {
-        const resolved = await resolveToken(token);
-        if (!mounted) return;
-        setSchema(resolved.schema);
-        setIngest(resolved.ingest);
-        const vault = getIdentitySnapshot();
-        const env = mapVaultToEnvelope(resolved.schema, { vault });
-        setEnvelope(env);
+        if (token) {
+          const resolved = await resolveToken(token);
+          if (!mounted) return;
+          setSchema(resolved.schema);
+          setIngest(resolved.ingest);
+          const vault = getIdentitySnapshot();
+          const env = mapVaultToEnvelope(resolved.schema, { vault });
+          setEnvelope(env);
+        } else if (schemaIdParam) {
+          const s = await fetchSchema(schemaIdParam);
+          if (!mounted) return;
+          setSchema(s);
+          // Synthesize a basic ingest descriptor for now
+          const ing: IngestDescriptor = {
+            transport: 'REST_JSON',
+            endpoint: `${Config.vendorBaseUrl}/ingest`,
+            headers: {},
+            auth: { type: 'Bearer', token: 'stub_token' },
+            encryption: { type: 'NONE' },
+            expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+          };
+          setIngest(ing);
+          const vault = getIdentitySnapshot();
+          const env = mapVaultToEnvelope(s, { vault });
+          setEnvelope(env);
+        } else {
+          throw new Error('missing_params');
+        }
       } catch (e: any) {
         if (mounted) setError(e?.message ?? 'resolve_failed');
       } finally {
@@ -40,7 +64,7 @@ export default function DynamicFormScreen({ route, navigation }: Props) {
     return () => {
       mounted = false;
     };
-  }, [token]);
+  }, [token, schemaIdParam]);
 
   const preview = useMemo(() => JSON.stringify(envelope, null, 2), [envelope]);
 

@@ -10,6 +10,7 @@ import ConsentScreen from '../screens/ConsentScreen';
 import DynamicFormScreen from '../screens/DynamicFormScreen';
 import HomeScreen from '../screens/HomeScreen';
 import ScanLinkScreen from '../screens/ScanLinkScreen';
+import SearchScreen from '../screens/SearchScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -19,6 +20,7 @@ const linking: LinkingOptions<RootStackParamList> = {
   config: {
     screens: {
       Home: 'home',
+      Search: 'search',
       ScanLink: 'scan',
       Consent: 'consent',
       DynamicForm: 'form/:schemaId?',
@@ -34,6 +36,7 @@ export default function AppNavigator() {
     <NavigationContainer linking={linking}>
       <Stack.Navigator initialRouteName="Home">
         <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen name="Search" component={SearchScreen} options={{ title: 'Search' }} />
         <Stack.Screen name="ScanLink" component={ScanLinkScreen} options={{ title: 'Scan Link' }} />
         <Stack.Screen name="Consent" component={ConsentScreen} />
         <Stack.Screen

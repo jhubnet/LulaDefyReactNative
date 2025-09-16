@@ -71,6 +71,25 @@ export function parseLulaLink(input: string): {
   }
 }
 
+// Lightweight parser to extract company/schema from a URL without a token.
+export function parseCompanySchema(input: string): {
+  companyId?: string;
+  schemaId?: string;
+  errors?: string[];
+} {
+  try {
+    const u = new URL(input.trim());
+    const companyId = u.searchParams.get('companyId') || undefined;
+    const schemaId = u.searchParams.get('schemaId') || undefined;
+    if (companyId && schemaId) {
+      return { companyId, schemaId };
+    }
+    return { errors: ['MISSING_COMPANY_OR_SCHEMA'] };
+  } catch {
+    return { errors: ['URL_PARSE_FAILED'] };
+  }
+}
+
 export async function verifyLinkToken(_token: string): Promise<boolean> {
   // TODO: call VC3 DiscoveryLink Service for verification. For now always true.
   return true;

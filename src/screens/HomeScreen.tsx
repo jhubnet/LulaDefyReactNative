@@ -10,6 +10,7 @@ export default function HomeScreen({ navigation }: Props) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Lula Vault + Chat</Text>
+      <Button title="Search Company Forms" onPress={() => navigation.navigate('Search')} />
       <Button title="Scan Company Link" onPress={() => navigation.navigate('ScanLink')} />
       <Button title="Open Chats" onPress={() => navigation.navigate('ChatList')} />
       <Button title="Settings" onPress={() => navigation.navigate('Settings')} />
