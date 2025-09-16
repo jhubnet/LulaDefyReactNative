@@ -38,9 +38,6 @@
     "extra": {
       "vendorBaseUrl": "https://api.vendor.example",
       "relayBaseUrl": "https://relay.vendor.example"
-    },
-    "plugins": [
-      "expo-barcode-scanner"
-    ]
+    }
   }
 }

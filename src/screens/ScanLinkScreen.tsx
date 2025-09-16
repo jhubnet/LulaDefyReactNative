@@ -1,4 +1,5 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { CameraView, Camera, type BarcodeScanningResult } from 'expo-camera';
 import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, Button, TextInput } from 'react-native';
 
@@ -12,8 +13,10 @@ export default function ScanLinkScreen({ navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [scannerVisible, setScannerVisible] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  const [Scanner, setScanner] = useState<any>(null);
   const [scanned, setScanned] = useState(false);
+  const [lastScan, setLastScan] = useState<string | null>(null);
+  const zoom = 0.02;
+  const [scannerAvailable, setScannerAvailable] = useState<boolean | null>(null);
 
   const parseAndContinue = async () => {
     setError(null);
@@ -52,11 +55,57 @@ export default function ScanLinkScreen({ navigation }: Props) {
   const openScanner = useCallback(async () => {
     setError(null);
     try {
-      const mod = await import('expo-barcode-scanner');
-      const { status } = await mod.BarCodeScanner.requestPermissionsAsync();
+      const { status } = await Camera.requestCameraPermissionsAsync();
       setHasPermission(status === 'granted');
-      setScanner(() => mod.BarCodeScanner);
       setScanned(false);
+      // Prefer the modern/native scanner if available (Google Code Scanner / iOS DataScanner)
+      let useNative = false;
+      try {
+        const available = await (Camera as any).isModernBarcodeScannerAvailable?.();
+        if (typeof available === 'boolean') {
+          setScannerAvailable(available);
+          useNative = available;
+        }
+      } catch {}
+
+      if (useNative) {
+        // Subscribe to the modern scanner event, then launch the scanner UI
+        const sub = (Camera as any).onModernBarcodeScanned?.(async (evt: any) => {
+          try {
+            const payload = String(evt?.data ?? '');
+            // eslint-disable-next-line no-console
+            console.log('Modern scanner scanned', payload);
+            setLastScan(payload);
+            await (Camera as any).dismissScanner?.();
+            if (!payload) return;
+            const res = parseLulaLink(payload);
+            if (res.errors || !res.token) {
+              setError(res.errors?.join(',') ?? 'PARSE_FAILED');
+              return;
+            }
+            const ok = await verifyLinkToken(res.token);
+            if (!ok) {
+              setError('TOKEN_INVALID');
+              return;
+            }
+            navigation.navigate('Consent', { token: res.token });
+          } finally {
+            // Remove the subscription after first scan
+            try { sub?.remove?.(); } catch {}
+          }
+        });
+
+        try {
+          await (Camera as any).launchScanner?.({ barcodeTypes: ['qr'] });
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.warn('Launch scanner failed, falling back to inline camera', e);
+          setScannerVisible(true);
+        }
+        return;
+      }
+
+      // Fallback: show inline camera view
       setScannerVisible(true);
     } catch {
       setError('SCANNER_UNAVAILABLE');
@@ -68,22 +117,66 @@ export default function ScanLinkScreen({ navigation }: Props) {
     setScanned(false);
   };
 
-  const handleBarCodeScanned = async ({ data }: { data: string }) => {
+  const openNativeScanner = useCallback(async () => {
+    try {
+      const available = await (Camera as any).isModernBarcodeScannerAvailable?.();
+      if (!available) {
+        setScannerAvailable(false);
+        setScannerVisible(true);
+        return;
+      }
+      const sub = (Camera as any).onModernBarcodeScanned?.(async (evt: any) => {
+        try {
+          const payload = String(evt?.data ?? '');
+          // eslint-disable-next-line no-console
+          console.log('Modern scanner scanned', payload);
+          setLastScan(payload);
+          await (Camera as any).dismissScanner?.();
+          if (!payload) return;
+          const res = parseLulaLink(payload);
+          if (res.errors || !res.token) {
+            setError(res.errors?.join(',') ?? 'PARSE_FAILED');
+            return;
+          }
+          const ok = await verifyLinkToken(res.token);
+          if (!ok) {
+            setError('TOKEN_INVALID');
+            return;
+          }
+          navigation.navigate('Consent', { token: res.token });
+        } finally {
+          try { sub?.remove?.(); } catch {}
+        }
+      });
+      await (Camera as any).launchScanner?.({ barcodeTypes: ['qr'] });
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('Native scanner error', e);
+      setError('SCANNER_UNAVAILABLE');
+    }
+  }, [navigation]);
+
+  const handleBarCodeScanned = async ({ data }: BarcodeScanningResult) => {
     if (scanned) return;
     setScanned(true);
+    // Immediately stop scanning UI for a seamless experience
+    setScannerVisible(false);
+    // Debug: verify the scanner callback is firing
+    try {
+      // eslint-disable-next-line no-console
+      console.log('Barcode scanned', data);
+    } catch {}
+    setLastScan(data ?? null);
     const res = parseLulaLink(data);
     if (res.errors || !res.token) {
       setError(res.errors?.join(',') ?? 'PARSE_FAILED');
-      setScanned(false);
       return;
     }
     const ok = await verifyLinkToken(res.token);
     if (!ok) {
       setError('TOKEN_INVALID');
-      setScanned(false);
       return;
     }
-    setScannerVisible(false);
     navigation.navigate('Consent', { token: res.token });
   };
 
@@ -93,9 +186,23 @@ export default function ScanLinkScreen({ navigation }: Props) {
       <Text>Use camera to scan a Lula QR token, or paste a token/URL below</Text>
       {scannerVisible ? (
         <View style={styles.scannerBox}>
-          {Scanner && hasPermission ? (
-            <Scanner
-              onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
+          {hasPermission ? (
+            // Using expo-camera's CameraView for barcode scanning
+            // See: https://docs.expo.dev/versions/latest/sdk/camera/
+            <CameraView
+              active
+              facing="back"
+              autofocus="on"
+              zoom={zoom}
+              onCameraReady={() => {
+                try {
+                  // eslint-disable-next-line no-console
+                  console.log('Camera ready');
+                } catch {}
+              }}
+              // Limit to QR for reliability; we can broaden later
+              barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+              onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
               style={StyleSheet.absoluteFillObject}
             />
           ) : hasPermission === false ? (
@@ -105,7 +212,18 @@ export default function ScanLinkScreen({ navigation }: Props) {
           )}
           <View style={styles.scannerActions}>
             <Button title="Close" onPress={closeScanner} />
+            <Button title="Use System Scanner" onPress={openNativeScanner} />
           </View>
+          {scannerAvailable === false ? (
+            <View style={styles.scanInfo}>
+              <Text style={{ color: '#fff' }}>Scanner engine not available on this device. Try "Use System Scanner" or a physical device.</Text>
+            </View>
+          ) : null}
+          {lastScan ? (
+            <View style={styles.scanInfo}>
+              <Text numberOfLines={2}>Last scanned: {lastScan}</Text>
+            </View>
+          ) : null}
         </View>
       ) : (
         <Button title="Open Scanner" onPress={openScanner} />
@@ -154,4 +272,14 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   error: { color: 'red' },
+  scanInfo: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    right: 100,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
 });
